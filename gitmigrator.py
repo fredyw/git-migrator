@@ -32,12 +32,13 @@ def execute(cmd):
 
 def execute_output(cmd):
     branches = []
+    pattern = 'remotes/origin/'
     out = subprocess.check_output(cmd)
     for line in out.split(os.linesep):
         stripped_line = line.strip()
-        if stripped_line.startswith('remotes/origin'):
-            if stripped_line.startswith('remotes/origin/HEAD'): continue
-            branches.append(os.path.basename(stripped_line))
+        if stripped_line.startswith(pattern):
+            if stripped_line.startswith(pattern + 'HEAD'): continue
+            branches.append(stripped_line[len(pattern):])
     return branches
 
 # this workaround is needed for Windows
