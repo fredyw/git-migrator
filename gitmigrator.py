@@ -22,7 +22,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import sys, os, subprocess, logging, argparse, shutil
+import sys, os, subprocess, logging, argparse, shutil, stat, errno
 
 logger = None
 
@@ -40,11 +40,22 @@ def execute_output(cmd):
             branches.append(os.path.basename(stripped_line))
     return branches
 
+# this workaround is needed for Windows
+def handle_remove_readonly(func, path, exc):
+    excvalue = exc[1]
+    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
+        os.chmod(path, stat.S_IRWXU| stat.S_IRWXG| stat.S_IRWXO) # 0777
+        func(path)
+    else:
+        raise
+
 def migrate(src_repo, dest_repo):
     tmp_repo = '.tmprepo'
     new_remote = 'newremote'
     old_cwd = os.getcwd()
     try:
+        if os.path.exists(tmp_repo):
+            shutil.rmtree(tmp_repo, ignore_errors=False, onerror=handle_remove_readonly)
         execute(['git', 'clone', src_repo, tmp_repo])
         os.chdir(tmp_repo)
         branches = execute_output(['git', 'branch', '-a'])
@@ -56,7 +67,7 @@ def migrate(src_repo, dest_repo):
         execute(['git', 'push', new_remote, '--tags'])
     finally:
         os.chdir(old_cwd)
-        shutil.rmtree(tmp_repo)
+        shutil.rmtree(tmp_repo, ignore_errors=False, onerror=handle_remove_readonly)
 
 def configure_logger():
     global logger
